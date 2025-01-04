@@ -32,7 +32,9 @@ If you want to sort multiple types of nodes, simply add them additional argument
 :TSort function_definition declaration
 ```
 
-Finally, you can sort nodes of multiple types together using groups of types. Members of a single group are connected using a `+` sign:
+This will sort functions and variable declarations individually and keep them separate.
+
+If instead you want to sort these node types as a single list of nodes, you can sort nodes of multiple types together using groups of types. Members of a single group are connected using a `+` sign:
 
 ```vim
 :TSort function_definition+declaration method
