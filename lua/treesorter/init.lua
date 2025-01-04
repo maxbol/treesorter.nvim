@@ -103,8 +103,49 @@ M.setup = function()
       table.insert(groups, arg)
     end
 
+    print("Range:" .. vim.inspect(o.range))
+
     M.tsort(groups)
-  end, { nargs = "*" })
+  end, {
+    nargs = "*",
+    range = "%",
+    complete = function(arg_lead)
+      local all_types = ts_utils.get_types()
+
+      if not arg_lead then
+        return all_types
+      end
+
+      local arg_part_idx = arg_lead:find("[^+]+$")
+
+      local types = all_types
+
+      if not arg_part_idx then
+        for k, v in ipairs(types) do
+          types[k] = arg_lead .. v
+        end
+        return types
+      end
+
+      local history_part = arg_lead:sub(1, arg_part_idx - 1)
+      local arg_part = arg_lead:sub(arg_part_idx)
+
+      types = vim.tbl_filter(function(type)
+        return type:find(arg_part) == 1
+      end, types)
+
+      if #types == 1 and types[1] == arg_part then
+        history_part = history_part .. arg_part .. "+"
+        types = all_types
+      end
+
+      for k, type in ipairs(types) do
+        types[k] = history_part .. type
+      end
+
+      return types
+    end,
+  })
 end
 
 return M
