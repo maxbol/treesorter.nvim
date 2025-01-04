@@ -85,7 +85,7 @@ M.reorder_children = function(types)
   M.clear_children(children)
 end
 
-M.tsort = function(groups)
+M.sort = function(groups)
   for _, group in ipairs(groups) do
     local types = {}
     for type in group:gmatch("([^+]+)") do
@@ -105,7 +105,7 @@ M.setup = function()
 
     print("Range:" .. vim.inspect(o.range))
 
-    M.tsort(groups)
+    M.sort(groups)
   end, {
     nargs = "*",
     range = "%",
