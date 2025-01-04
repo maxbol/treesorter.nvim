@@ -43,3 +43,9 @@ You can use TSort in visual mode to only sort nodes within the selected range:
 ```vim
 :'<,'>TSort function_definition
 ```
+
+Usage with LUA:
+
+```lua
+require("treesorter").sort({"function_definition+declaration", "method"})
+```
