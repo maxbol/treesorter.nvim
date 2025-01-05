@@ -40,12 +40,8 @@ M.find_node_ancestor = function(types, node)
   return M.find_node_ancestor(types, parent)
 end
 
-M.find_top_node_containing = function(types, node)
-  if not node then
-    node = vim.treesitter.get_node()
-  end
-
-  local child_iter = M.iter_children_of_types(types, node)
+M.find_nearest_ancestor_containing = function(type_filter, bufnr, node)
+  local child_iter = type_filter(node:iter_children())
   local first_child = child_iter()
 
   if first_child then
@@ -58,27 +54,41 @@ M.find_top_node_containing = function(types, node)
     return nil
   end
 
-  return M.find_top_node_containing(types, parent)
+  return M.find_nearest_ancestor_containing(type_filter, bufnr, parent)
 end
 
-M.iter_children_of_types = function(types, node)
-  if not node then
+M.get_type_filter = function(types)
+  return function(iter)
     return function()
-      return nil
+      while true do
+        local child = iter()
+        if not child then
+          return nil
+        end
+
+        if vim.tbl_contains(types, child:type()) then
+          return child
+        end
+      end
     end
   end
+end
 
-  local iter = node:iter_children()
+M.get_range_filter = function(range)
+  return function(iter)
+    return function()
+      while true do
+        local child = iter()
+        if not child then
+          return nil
+        end
 
-  return function()
-    while true do
-      local child = iter()
-      if not child then
-        return nil
-      end
+        local start_row = child:start()
+        local end_row = child:end_()
 
-      if vim.tbl_contains(types, child:type()) then
-        return child
+        if start_row >= range[1] and end_row <= range[2] then
+          return child
+        end
       end
     end
   end
@@ -89,7 +99,7 @@ M.get_first_child_by_type = function(node, child_type)
     return nil
   end
 
-  local iter = M.iter_children_of_types({ child_type }, node)
+  local iter = M.get_type_filter({ child_type })(node:iter_children())
   return iter()
 end
 

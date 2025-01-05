@@ -2,14 +2,19 @@ local ts_utils = require("treesorter.ts_utils")
 
 local M = {}
 
-M.read_children = function(types)
-  local container = ts_utils.find_top_node_containing(types)
+M.read_children = function(type_filter, bufnr, node, range_filter)
+  local container = ts_utils.find_nearest_ancestor_containing(type_filter, bufnr, node)
 
   if not container then
     error("No node containing children of specified type exists in tree")
   end
 
-  local child_iter = ts_utils.iter_children_of_types(types, container)
+  local child_iter = type_filter(container:iter_children())
+
+  if range_filter then
+    child_iter = range_filter(child_iter)
+  end
+
   local children = {}
 
   local to_pos = 0
@@ -40,11 +45,11 @@ M.read_children = function(types)
         end_ = next_sibling_start - 1
       end
 
-      table.insert(children, { start = start, end_ = end_, name = ts_utils.get_node_name(child) })
-
-      if child:end_() + 1 > to_pos then
-        to_pos = child:end_() + 1
+      if end_ + 1 > to_pos then
+        to_pos = end_ + 1
       end
+
+      table.insert(children, { start = start, end_ = end_, name = ts_utils.get_node_name(child) })
     end
   end
 
@@ -79,19 +84,38 @@ M.clear_children = function(children)
   end
 end
 
-M.reorder_children = function(types)
-  local children, to_pos = M.read_children(types)
+M.reorder_children = function(type_filter, bufnr, node, range_filter)
+  local children, to_pos = M.read_children(type_filter, bufnr, node, range_filter)
   M.write_children(children, to_pos)
   M.clear_children(children)
 end
 
-M.sort = function(groups)
-  for _, group in ipairs(groups) do
+M.sort = function(opts)
+  local node, range_filter
+
+  if opts.range then
+    local last_line = vim.api.nvim_buf_get_lines(opts.bufnr or 0, opts.range[2], opts.range[2] + 1, true)
+    if #last_line == 0 then
+      error("Invalid range")
+    end
+    local end_col = #last_line[1]
+    node = vim.treesitter
+      .get_parser(opts.bufnr)
+      :named_node_for_range({ opts.range[1], 0, opts.range[2], end_col }, { ignore_injections = false })
+    range_filter = ts_utils.get_range_filter(opts.range)
+  else
+    node = vim.treesitter.get_node({
+      bufnr = opts.bufnr,
+      pos = opts.pos,
+    })
+  end
+
+  for _, group in ipairs(opts.groups) do
     local types = {}
     for type in group:gmatch("([^+]+)") do
       table.insert(types, type)
     end
-    M.reorder_children(types)
+    M.reorder_children(ts_utils.get_type_filter(types), opts.bufnr, node, range_filter)
   end
 end
 
@@ -103,9 +127,13 @@ M.setup = function()
       table.insert(groups, arg)
     end
 
-    print("Range:" .. vim.inspect(o.range))
+    local range
 
-    M.sort(groups)
+    if o.range == 2 then
+      range = { o.line1 - 1, o.line2 - 1 }
+    end
+
+    M.sort({ groups = groups, range = range })
   end, {
     nargs = "*",
     range = "%",
