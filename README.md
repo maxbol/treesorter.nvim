@@ -2,6 +2,12 @@
 
 Simple POC of a plugin to sort code units using treesitter.
 
+
+
+https://github.com/user-attachments/assets/8156fe67-8a12-4b68-a647-8012825dfeb5
+
+
+
 ## Installation
 
 Using lazy.nvim:
