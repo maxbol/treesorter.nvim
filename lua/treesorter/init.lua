@@ -94,7 +94,6 @@ end
 
 M.reorder_children = function(type_filter, bufnr, node, range_filter)
   local children, to_pos = M.read_children(type_filter, bufnr, node, range_filter)
-  print("children", vim.inspect(children))
   M.write_children(children, to_pos)
   M.clear_children(children)
 end

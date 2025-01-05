@@ -18,7 +18,7 @@ return {
 
 ## Usage
 
-To sort units of a certain type, use the `TSort` command. For example, to sort functions in a Lua file:
+To sort units of a certain type, use the `TSort` command. For example, to sort function definitions in a C file:
 
 ```vim
 :TSort function_definition
