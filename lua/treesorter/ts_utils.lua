@@ -12,9 +12,9 @@ M.node_name_fields = {
   "path",
 }
 
-M.find_top_node = function(node)
+M.find_smallest_node_by_pos = function(bufnr, node)
   if not node then
-    node = vim.treesitter.get_node()
+    node = vim.treesitter.get_node({ bufnr = bufnr })
   end
 
   local parent = node:parent()
@@ -23,21 +23,18 @@ M.find_top_node = function(node)
     return node
   end
 
-  return M.find_top_node(parent)
+  return M.find_smallest_node_by_pos(bufnr, parent)
 end
 
-M.find_node_ancestor = function(types, node)
-  if not node then
-    return nil
+M.find_smallest_node_for_range = function(bufnr, range)
+  local last_line = vim.api.nvim_buf_get_lines(bufnr or 0, range[2], range[2] + 1, true)
+  if #last_line == 0 then
+    error("Invalid range")
   end
-
-  if vim.tbl_contains(types, node:type()) then
-    return node
-  end
-
-  local parent = node:parent()
-
-  return M.find_node_ancestor(types, parent)
+  local end_col = #last_line[1]
+  return vim.treesitter
+    .get_parser(bufnr)
+    :named_node_for_range({ range[1], 0, range[2], end_col }, { ignore_injections = false })
 end
 
 M.find_nearest_ancestor_containing = function(type_filter, bufnr, node)
@@ -55,6 +52,17 @@ M.find_nearest_ancestor_containing = function(type_filter, bufnr, node)
   end
 
   return M.find_nearest_ancestor_containing(type_filter, bufnr, parent)
+end
+
+M.oneoff_iterator = function(value)
+  local called = false
+  return function()
+    if called then
+      return nil
+    end
+    called = true
+    return value
+  end
 end
 
 M.get_type_filter = function(types)
@@ -150,18 +158,15 @@ M.get_node_name = function(node)
   error("Node type not supported: " .. node:type())
 end
 
-M.get_typeset = function(node, types)
-  if not types then
-    types = {}
-  end
-  if not node then
-    node = M.find_top_node()
+M.get_typeset = function(node, typeset)
+  if not typeset then
+    typeset = {}
   end
 
   local node_type = node:type()
 
-  if not types[node_type] then
-    types[node_type] = true
+  if not typeset[node_type] then
+    typeset[node_type] = true
   end
 
   local iter = node:iter_children()
@@ -171,19 +176,27 @@ M.get_typeset = function(node, types)
       break
     end
 
-    types = M.get_typeset(child, types)
+    typeset = M.get_typeset(child, typeset)
   end
 
-  return types
+  return typeset
 end
 
-M.get_types = function()
-  local typeset = M.get_typeset()
+M.get_types = function(bufnr, range)
+  local node
+  if range then
+    node = M.find_smallest_node_for_range(bufnr, range)
+  else
+    node = M.find_smallest_node_by_pos(bufnr)
+  end
+  local typeset = M.get_typeset(node)
   local types = {}
 
   for type, _ in pairs(typeset) do
     table.insert(types, type)
   end
+
+  table.sort(types)
 
   return types
 end

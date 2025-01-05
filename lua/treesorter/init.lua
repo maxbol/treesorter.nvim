@@ -31,6 +31,10 @@ M.read_children = function(type_filter, bufnr, node, range_filter)
 
       local prev_sibling = child:prev_sibling()
 
+      if range_filter then
+        prev_sibling = range_filter(ts_utils.oneoff_iterator(prev_sibling))()
+      end
+
       if prev_sibling and prev_sibling:type() == "comment" then
         local prev_sibling_end = prev_sibling:end_()
         if prev_sibling_end + 1 == start then
@@ -39,6 +43,10 @@ M.read_children = function(type_filter, bufnr, node, range_filter)
       end
 
       local next_sibling = child:next_sibling()
+
+      if range_filter then
+        next_sibling = range_filter(ts_utils.oneoff_iterator(next_sibling))()
+      end
 
       if next_sibling then
         local next_sibling_start = next_sibling:start()
@@ -86,6 +94,7 @@ end
 
 M.reorder_children = function(type_filter, bufnr, node, range_filter)
   local children, to_pos = M.read_children(type_filter, bufnr, node, range_filter)
+  print("children", vim.inspect(children))
   M.write_children(children, to_pos)
   M.clear_children(children)
 end
@@ -94,14 +103,7 @@ M.sort = function(opts)
   local node, range_filter
 
   if opts.range then
-    local last_line = vim.api.nvim_buf_get_lines(opts.bufnr or 0, opts.range[2], opts.range[2] + 1, true)
-    if #last_line == 0 then
-      error("Invalid range")
-    end
-    local end_col = #last_line[1]
-    node = vim.treesitter
-      .get_parser(opts.bufnr)
-      :named_node_for_range({ opts.range[1], 0, opts.range[2], end_col }, { ignore_injections = false })
+    node = ts_utils.find_smallest_node_for_range(opts.bufnr, opts.range)
     range_filter = ts_utils.get_range_filter(opts.range)
   else
     node = vim.treesitter.get_node({
@@ -137,8 +139,15 @@ M.setup = function()
   end, {
     nargs = "*",
     range = "%",
-    complete = function(arg_lead)
-      local all_types = ts_utils.get_types()
+    complete = function(arg_lead, cmd_line)
+      local visual_mod = string.find(cmd_line, "'<,'>") == 1
+      local range
+
+      if visual_mod then
+        range = { vim.api.nvim_buf_get_mark(0, "<")[1] - 1, vim.api.nvim_buf_get_mark(0, ">")[1] - 1 }
+      end
+
+      local all_types = ts_utils.get_types(nil, range)
 
       if not arg_lead then
         return all_types
