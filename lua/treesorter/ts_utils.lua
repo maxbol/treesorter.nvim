@@ -10,9 +10,10 @@ M.node_name_fields = {
   "name",
   "declarator",
   "path",
+  "field",
 }
 
-M.find_smallest_node_by_pos = function(bufnr, node)
+M.find_root_node = function(bufnr, node)
   if not node then
     node = vim.treesitter.get_node({ bufnr = bufnr })
   end
@@ -23,7 +24,7 @@ M.find_smallest_node_by_pos = function(bufnr, node)
     return node
   end
 
-  return M.find_smallest_node_by_pos(bufnr, parent)
+  return M.find_root_node(bufnr, parent)
 end
 
 M.find_smallest_node_for_range = function(bufnr, range)
@@ -35,6 +36,51 @@ M.find_smallest_node_for_range = function(bufnr, range)
   return vim.treesitter
     .get_parser(bufnr)
     :named_node_for_range({ range[1], 0, range[2], end_col }, { ignore_injections = false })
+end
+
+local function find_smallest_node_containing_oneof(needle, haystack)
+  local parent = needle:parent()
+
+  if not parent then
+    return needle
+  end
+
+  for _, node in ipairs(haystack) do
+    if needle:equal(node) then
+      return parent
+    end
+  end
+
+  return find_smallest_node_containing_oneof(parent, haystack)
+end
+
+M.find_container_from_query = function(query_iter, floor_node)
+  local captured_nodes = {}
+  while true do
+    local node = query_iter()
+    if not node then
+      break
+    end
+
+    table.insert(captured_nodes, node)
+  end
+
+  -- First check the children of the floor node for matches to see if the floor node should be the container
+  local child_it = floor_node:iter_children()
+  while true do
+    local child = child_it()
+    if not child then
+      break
+    end
+    for _, captured_node in ipairs(captured_nodes) do
+      if child:equal(captured_node) then
+        return floor_node
+      end
+    end
+  end
+
+  -- Then traverse up until the ceiling node checking for the container
+  return find_smallest_node_containing_oneof(floor_node, captured_nodes)
 end
 
 M.find_nearest_ancestor_containing = function(type_filter, bufnr, node)
@@ -62,6 +108,23 @@ M.oneoff_iterator = function(value)
     end
     called = true
     return value
+  end
+end
+
+M.get_parent_filter = function(parent)
+  return function(iter)
+    return function()
+      while true do
+        local node = iter()
+        if not node then
+          return nil
+        end
+
+        if node:parent():equal(parent) then
+          return node
+        end
+      end
+    end
   end
 end
 
@@ -99,6 +162,29 @@ M.get_range_filter = function(range)
         end
       end
     end
+  end
+end
+
+M.get_query_node_iterator = function(iter)
+  return function()
+    local capture = { iter() }
+    if not capture then
+      return nil
+    end
+
+    return capture[2]
+  end
+end
+
+M.compose_iterators = function(iterators)
+  return function()
+    for _, iter in ipairs(iterators) do
+      local value = iter()
+      if value then
+        return value
+      end
+    end
+    return nil
   end
 end
 
@@ -155,6 +241,19 @@ M.get_node_name = function(node)
     end
   end
 
+  local iter = node:iter_children()
+  while true do
+    local child = iter()
+    if not child then
+      break
+    end
+
+    local ok, child_name = pcall(M.get_node_name, child)
+    if ok then
+      return child_name
+    end
+  end
+
   error("Node type not supported: " .. node:type())
 end
 
@@ -187,7 +286,7 @@ M.get_types = function(bufnr, range)
   if range then
     node = M.find_smallest_node_for_range(bufnr, range)
   else
-    node = M.find_smallest_node_by_pos(bufnr)
+    node = M.find_root_node(bufnr)
   end
   local typeset = M.get_typeset(node)
   local types = {}
@@ -200,5 +299,13 @@ M.get_types = function(bufnr, range)
 
   return types
 end
+
+M.node_name_types = {
+  "identifier",
+  "type_identifier",
+  "name",
+  "system_lib_string",
+  "string_literal",
+}
 
 return M

@@ -55,5 +55,8 @@ You can use TSort in visual mode to only sort nodes within the selected range:
 Usage with LUA:
 
 ```lua
-require("treesorter").sort({"function_definition+declaration", "method"})
+require("treesorter").sort({ groups = { "function_definition+declaration", "method" } })
+require("treesorter").sort({ groups = { "function_definition" }, range = { start = 1, end = 2 } })
+require("treesorter").sort({ groups = { "function_definition" }, bufnr = 1 })
+require("treesorter").sort({ groups = { "function_definition" }, pos = { 1, 2 } })
 ```
