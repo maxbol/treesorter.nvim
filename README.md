@@ -19,6 +19,10 @@ return {
   config = function()
     require("treesorter").setup()
   end,
+  dependencies = {
+    -- Optional, but highly recommended
+    "nvim-treesitter/nvim-treesitter-textobjects"
+  },
 }
 ```
 
@@ -52,11 +56,19 @@ You can use TSort in visual mode to only sort nodes within the selected range:
 :'<,'>TSort function_definition
 ```
 
-Usage with LUA:
+### Usage with LUA:
 
 ```lua
 require("treesorter").sort({ groups = { "function_definition+declaration", "method" } })
 require("treesorter").sort({ groups = { "function_definition" }, range = { start = 1, end = 2 } })
 require("treesorter").sort({ groups = { "function_definition" }, bufnr = 1 })
 require("treesorter").sort({ groups = { "function_definition" }, pos = { 1, 2 } })
+```
+
+### Using textobject captures
+
+If `nvim-treesitter-textobjects` is installed, you can directly use treesitter captures instead of types in your sort groups, i.e:
+
+```vim
+:TSort @function.outer
 ```
