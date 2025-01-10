@@ -72,3 +72,10 @@ If `nvim-treesitter-textobjects` is installed, you can directly use treesitter c
 ```vim
 :TSort @function.outer
 ```
+
+This is handy for when you might want to create a global mapping that uses the same sortgroup regardless of filetype:
+
+```lua
+vim.api.nvim_set_keymap("n", "<leader>sf", ":TSort @function.outer<CR>", { noremap = true, silent = true })
+```
+
